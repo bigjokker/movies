@@ -11,7 +11,7 @@
         button:hover { background-color: #444; }
         #rangeButtons { display: flex; gap: 5px; }
         .activeBtn { background-color: #555; border-color: #888; font-weight: bold; }
-        #genresContainer label { display: block; }
+        #genresContainer label, #moodsContainer label { display: block; }
         #applyFilters, #cancelFilters { margin-top: 10px; }
         input { font-size: 16px; }
     </style>
@@ -25,6 +25,8 @@
     </div>
     <h3>Genres</h3>
     <div id="genresContainer"></div>
+    <h3>Mood Tags</h3>
+    <div id="moodsContainer"></div>
     <h3>Search</h3>
     <input type="text" id="searchInput" placeholder="Search for a movie...">
     <button id="applyFilters">Apply</button>
@@ -33,6 +35,7 @@
     <script>
         let dateRange = localStorage.getItem('selectedRange') || '6m';
         let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
+        let selectedMoods = JSON.parse(localStorage.getItem('selectedMoods')) || [];
         let searchQuery = localStorage.getItem('searchQuery') || '';
 
         const btn6m = document.getElementById('btn6m');
@@ -51,6 +54,16 @@
             {id: 10749, name: 'Romance'},
             {id: 878, name: 'Science Fiction'},
             {id: 53, name: 'Thriller'}
+        ];
+
+        const moods = [
+            {id: 9672, name: 'Feel-Good'},
+            {id: 9715, name: 'Thrilling'},
+            {id: 9760, name: 'Thought-Provoking'},
+            {id: 9673, name: 'Heartwarming'},
+            {id: 9733, name: 'Inspiring'},
+            {id: 9713, name: 'Suspenseful'},
+            {id: 17296, name: 'Whimsical'}
         ];
 
         function updateActiveButton() {
@@ -80,6 +93,18 @@
             genresContainer.appendChild(label);
         });
 
+        const moodsContainer = document.getElementById('moodsContainer');
+        moods.forEach(mood => {
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = mood.id;
+            checkbox.checked = selectedMoods.includes(mood.id);
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(mood.name));
+            moodsContainer.appendChild(label);
+        });
+
         const searchInput = document.getElementById('searchInput');
         searchInput.value = searchQuery;
 
@@ -88,7 +113,12 @@
             genresContainer.querySelectorAll('input:checked').forEach(cb => {
                 selectedGenres.push(parseInt(cb.value));
             });
+            selectedMoods = [];
+            moodsContainer.querySelectorAll('input:checked').forEach(cb => {
+                selectedMoods.push(parseInt(cb.value));
+            });
             localStorage.setItem('selectedGenres', JSON.stringify(selectedGenres));
+            localStorage.setItem('selectedMoods', JSON.stringify(selectedMoods));
             searchQuery = searchInput.value.trim();
             localStorage.setItem('searchQuery', searchQuery);
             localStorage.setItem('selectedRange', dateRange);
