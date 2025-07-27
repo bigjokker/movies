@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recent Movies by Popularity</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #121212; color: #e0e0e0; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; display: flex; align-items: flex-start; }
+        .poster { flex-shrink: 0; margin-right: 10px; width: 120px; height: 180px; }
+        .poster img { width: 100%; height: 100%; object-fit: cover; }
+        .placeholder { width: 100%; height: 100%; background-color: #333; display: flex; align-items: center; justify-content: center; font-size: 3em; color: #666; font-weight: bold; }
+        .middle { flex: 1; margin-right: 10px; max-width: 500px; }
+        .right-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; }
+        h1, h3 { color: #ffffff; }
+        h3 { margin-bottom: 5px; font-size: 1.1em; }
+        p { margin-top: 0; }
+        .rating { font-weight: bold; margin-top: 5px; color: #ffffff; font-size: 0.9em; text-align: right; }
+        .overview { color: #d0d0d0; }
+        button { background-color: #333; color: #e0e0e0; border: 1px solid #444; padding: 5px 10px; cursor: pointer; margin-left: 5px; }
+        button:hover { background-color: #444; }
+        #loadButton { float: right; }
+        #errorBox { background: #300; color: #f88; padding: 10px; margin-bottom: 10px; border: 1px solid #600; display: none; }
+        #header { display: flex; justify-content: space-between; align-items: center; }
+        #rangeButtons { display: flex; gap: 5px; }
+        .activeBtn { background-color: #555; border-color: #888; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <h1>Movies by Popularity</h1>
+        <div id="rangeButtons">
+            <button id="btn6m" onclick="changeRange('6m')">Last 6 Months</button>
+            <button id="btnAll" onclick="changeRange('all')">All Time</button>
+        </div>
+    </div>
+    <div id="errorBox"></div>
+    <div id="movieList"><p>Loading...</p></div>
+    <button id="loadButton" onclick="loadNext()">Load Next 10 Movies</button>
+
+    <script>
+        const apiKey = 'aaec347fa3992967d904943e3728bf79'; // <-- Your tested API key
+        let dateRange = localStorage.getItem('selectedRange') || '6m'; // load saved range or default
+        let seen = new Set();
+        let excluded = new Set();
+        let favorites = new Set();
+        let sortedFavorites = [];
+        let appPage = 1;
+        let currentPage = 1;
+        let maxPages = 0;
+        const movieList = document.getElementById('movieList');
+        const errorBox = document.getElementById('errorBox');
+
+        const btn6m = document.getElementById('btn6m');
+        const btnAll = document.getElementById('btnAll');
+
+        function updateActiveButton() {
+            btn6m.classList.toggle('activeBtn', dateRange === '6m');
+            btnAll.classList.toggle('activeBtn', dateRange === 'all');
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.style.display = 'block';
+        }
+
+        function loadExcluded() {
+            const stored = localStorage.getItem('excludedMovies');
+            if (stored) excluded = new Set(JSON.parse(stored));
+        }
+
+        function saveExcluded() {
+            localStorage.setItem('excludedMovies', JSON.stringify(Array.from(excluded)));
+        }
+
+        function loadFavorites() {
+            const stored = localStorage.getItem('favoriteMovies');
+            if (stored) favorites = new Set(JSON.parse(stored));
+        }
+
+        function saveFavorites() {
+            localStorage.setItem('favoriteMovies', JSON.stringify(Array.from(favorites)));
+        }
+
+        async function updateSortedFavorites() {
+            const favIds = Array.from(favorites);
+            if (favIds.length === 0) {
+                sortedFavorites = [];
+                return;
+            }
+            const promises = favIds.map(getMovieDetails);
+            const movies = await Promise.all(promises);
+            sortedFavorites = movies.filter(m => m !== null);
+            sortedFavorites.sort((a, b) => {
+                if (a.vote_average !== b.vote_average) return b.vote_average - a.vote_average;
+                return b.popularity - a.popularity;
+            });
+        }
+
+        async function getMovieDetails(id) {
+            try {
+                const response = await fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${apiKey}`);
+                const data = await response.json();
+                if (data.status_code) return null;
+                return data;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function toggleFavorite(movieId, buttonElement) {
+            const wasFavorite = favorites.has(movieId);
+            if (wasFavorite) {
+                favorites.delete(movieId);
+                buttonElement.innerHTML = '♡';
+                buttonElement.style.color = 'white';
+            } else {
+                favorites.add(movieId);
+                buttonElement.innerHTML = '♥';
+                buttonElement.style.color = 'red';
+            }
+            saveFavorites();
+            const isNowFavorite = !wasFavorite;
+            const rightSide = buttonElement.parentElement;
+            let excludeBtn = rightSide.querySelector('.exclude-btn');
+            if (isNowFavorite) {
+                if (excludeBtn) excludeBtn.remove();
+            } else {
+                if (!excludeBtn) {
+                    excludeBtn = document.createElement('button');
+                    excludeBtn.className = 'exclude-btn';
+                    excludeBtn.innerHTML = 'Seen/Skip';
+                    excludeBtn.onclick = () => excludeMovie(movieId, rightSide.parentElement);
+                    rightSide.insertBefore(excludeBtn, rightSide.firstChild);
+                }
+            }
+        }
+
+        function excludeMovie(movieId, liElement) {
+            if (favorites.has(movieId)) {
+                favorites.delete(movieId);
+                saveFavorites();
+            }
+            excluded.add(movieId);
+            seen.add(movieId);
+            saveExcluded();
+            liElement.remove();
+        }
+
+        function changeRange(range) {
+            dateRange = range;
+            localStorage.setItem('selectedRange', range); // save selection
+            seen.clear();
+            appPage = 1;
+            currentPage = 1;
+            maxPages = 0;
+            updateActiveButton();
+            loadMovies();
+        }
+
+        function loadNext() {
+            appPage++;
+            loadMovies();
+        }
+
+        async function loadMovies() {
+            errorBox.style.display = 'none';
+            movieList.innerHTML = '<p>Loading...</p>';
+            const favStart = (appPage - 1) * 10;
+            let favMovies = sortedFavorites.slice(favStart, favStart + 10);
+            let numFav = favMovies.length;
+            let numNewNeeded = 10 - numFav;
+            let newMovies = [];
+            if (numNewNeeded > 0) {
+                let gte = '';
+                if (dateRange === '6m') {
+                    const today = new Date();
+                    const pastDate = new Date();
+                    pastDate.setMonth(today.getMonth() - 6);
+                    const formatDate = d => d.toISOString().slice(0, 10);
+                    gte = `&primary_release_date.gte=${formatDate(pastDate)}&primary_release_date.lte=${formatDate(today)}`;
+                } else if (dateRange === 'all') {
+                    gte = '';
+                }
+                let attempts = 0;
+                const maxAttempts = 50;
+                while (newMovies.length < numNewNeeded && attempts < maxAttempts && (maxPages === 0 || currentPage <= maxPages)) {
+                    attempts++;
+                    try {
+                        const response = await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}${gte}&sort_by=popularity.desc&page=${currentPage}&with_original_language=en&region=US`);
+                        const data = await response.json();
+                        if (data.status_code) {
+                            showError(`TMDB Error: ${data.status_message}`);
+                            movieList.innerHTML = '';
+                            return;
+                        }
+                        if (data.total_pages > maxPages) maxPages = data.total_pages;
+                        if (!data.results || data.results.length === 0) {
+                            currentPage++;
+                            continue;
+                        }
+                        const potential = data.results.filter(movie => !seen.has(movie.id) && !excluded.has(movie.id));
+                        newMovies = newMovies.concat(potential);
+                        currentPage++;
+                    } catch (err) {
+                        showError(`Network error: ${err.message}`);
+                        movieList.innerHTML = '';
+                        return;
+                    }
+                }
+                newMovies = newMovies.slice(0, numNewNeeded);
+                newMovies.sort((a, b) => {
+                    const aHasVote = a.vote_average > 0 ? 1 : 0;
+                    const bHasVote = b.vote_average > 0 ? 1 : 0;
+                    if (aHasVote !== bHasVote) return bHasVote - aHasVote;
+                    const aHasPoster = a.poster_path ? 1 : 0;
+                    const bHasPoster = b.poster_path ? 1 : 0;
+                    return bHasPoster - aHasPoster;
+                });
+            }
+            const allMovies = [...favMovies, ...newMovies];
+            allMovies.forEach(movie => seen.add(movie.id));
+
+            if (allMovies.length > 0) {
+                let html = '<ul>';
+                allMovies.forEach(movie => {
+                    const posterUrl = movie.poster_path ? `https://image.tmdb.org/t/p/w154${movie.poster_path}` : '';
+                    const isFavorite = favorites.has(movie.id);
+                    html += `
+                        <li data-movie-id="${movie.id}">
+                            <div class="poster">
+                                ${posterUrl ? `<img src="${posterUrl}" alt="${movie.title} poster">` : '<div class="placeholder">?</div>'}
+                            </div>
+                            <div class="middle">
+                                <h3>${movie.title} (${movie.release_date || 'N/A'})</h3>
+                                <p class="overview">${movie.overview || 'No overview available.'}</p>
+                            </div>
+                            <div class="right-side">
+                                ${!isFavorite ? `<button class="exclude-btn" onclick="excludeMovie(${movie.id}, this.parentElement.parentElement)">Seen/Skip</button>` : ''}
+                                <p class="rating">Rating: ${movie.vote_average ? movie.vote_average.toFixed(1) : 'N/A'}</p>
+                                <button class="favorite-btn" onclick="toggleFavorite(${movie.id}, this)" style="background: none; border: none; font-size: 1.5em; color: ${isFavorite ? 'red' : 'white'};">
+                                    ${isFavorite ? '♥' : '♡'}
+                                </button>
+                            </div>
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+                movieList.innerHTML = html;
+            } else {
+                movieList.innerHTML = '<p>No movies found for this range.</p>';
+            }
+        }
+
+        (async () => {
+            loadExcluded();
+            loadFavorites();
+            await updateSortedFavorites();
+            updateActiveButton();
+            await loadMovies();
+        })();
+    </script>
+</body>
+</html>
