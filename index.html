@@ -17,7 +17,7 @@
         h3 { margin-bottom: 5px; font-size: 1.1em; }
         p { margin-top: 0; }
         .rating { font-weight: bold; margin-top: 5px; color: #ffffff; font-size: 0.9em; text-align: right; }
-        .overview { color: #d0d0d0; }
+        .overview { color: #d0d0d0; position: relative; cursor: pointer; }
         button { background-color: #333; color: #e0e0e0; border: 1px solid #444; padding: 5px 10px; cursor: pointer; margin-left: 5px; }
         button:hover { background-color: #444; }
         #loadButton { float: right; }
@@ -248,6 +248,49 @@
                 });
                 html += '</ul>';
                 movieList.innerHTML = html;
+
+                // Setup overview click to expand
+                const overviews = document.querySelectorAll('.overview');
+                overviews.forEach(ov => {
+                    ov.style.maxHeight = '154px';
+                    ov.style.overflow = 'hidden';
+                    const isOverflow = ov.scrollHeight > ov.clientHeight;
+                    let ellipsis = null;
+                    if (isOverflow) {
+                        ellipsis = document.createElement('span');
+                        ellipsis.textContent = '...';
+                        ellipsis.style.position = 'absolute';
+                        ellipsis.style.bottom = '0';
+                        ellipsis.style.right = '0';
+                        ellipsis.style.backgroundColor = '#121212';
+                        ellipsis.style.color = '#e0e0e0';
+                        ov.appendChild(ellipsis);
+                    }
+                    ov.addEventListener('click', () => {
+                        if (ov.style.maxHeight !== 'none') {
+                            ov.style.maxHeight = 'none';
+                            ov.style.overflow = 'visible';
+                            if (ellipsis) {
+                                ellipsis.remove();
+                                ellipsis = null;
+                            }
+                        } else {
+                            ov.style.maxHeight = '154px';
+                            ov.style.overflow = 'hidden';
+                            const nowOverflow = ov.scrollHeight > ov.clientHeight;
+                            if (nowOverflow && !ellipsis) {
+                                ellipsis = document.createElement('span');
+                                ellipsis.textContent = '...';
+                                ellipsis.style.position = 'absolute';
+                                ellipsis.style.bottom = '0';
+                                ellipsis.style.right = '0';
+                                ellipsis.style.backgroundColor = '#121212';
+                                ellipsis.style.color = '#e0e0e0';
+                                ov.appendChild(ellipsis);
+                            }
+                        }
+                    });
+                });
             } else {
                 movieList.innerHTML = '<p>No movies found for this range.</p>';
             }
