@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movies</title>
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <title>Recent Movies by Popularity</title>
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=1">
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #121212; color: #e0e0e0; }
         ul { list-style-type: none; padding: 0; }
@@ -21,24 +21,46 @@
         .overview { color: #d0d0d0; position: relative; cursor: pointer; }
         button { background-color: #333; color: #e0e0e0; border: 1px solid #444; padding: 5px 10px; cursor: pointer; margin-left: 5px; }
         button:hover { background-color: #444; }
-        #loadButton { float: right; }
         #errorBox { background: #300; color: #f88; padding: 10px; margin-bottom: 10px; border: 1px solid #600; display: none; }
         #header { display: flex; justify-content: space-between; align-items: center; }
         #rangeButtons { display: flex; gap: 5px; }
         .activeBtn { background-color: #555; border-color: #888; font-weight: bold; }
+        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #333; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; color: #e0e0e0; }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close:hover { color: #fff; cursor: pointer; }
+        #genresContainer label { display: block; }
+        #applyFilters { margin-top: 10px; }
+        #headerButtons { display: flex; gap: 5px; }
     </style>
 </head>
 <body>
     <div id="header">
         <h1>Movies by Popularity</h1>
-        <div id="rangeButtons">
-            <button id="btn6m" onclick="changeRange('6m')">Last 6 Months</button>
-            <button id="btnAll" onclick="changeRange('all')">All Time</button>
+        <div id="headerButtons">
+            <button id="filtersBtn">Filters</button>
+            <button id="clearBtn">Clear</button>
         </div>
     </div>
     <div id="errorBox"></div>
     <div id="movieList"><p>Loading...</p></div>
-    <button id="loadButton" onclick="loadNext()">Load Next 10 Movies</button>
+
+    <div id="filtersModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Filters</h2>
+            <h3>Date Range</h3>
+            <div id="rangeButtons">
+                <button id="btn6m" onclick="changeRange('6m')">Last 6 Months</button>
+                <button id="btnAll" onclick="changeRange('all')">All Time</button>
+            </div>
+            <h3>Genres</h3>
+            <div id="genresContainer"></div>
+            <h3>Search</h3>
+            <input type="text" id="searchInput" placeholder="Search for a movie...">
+            <button id="applyFilters">Apply</button>
+        </div>
+    </div>
 
     <script>
         const apiKey = 'aaec347fa3992967d904943e3728bf79'; // <-- Your tested API key
@@ -47,14 +69,33 @@
         let excluded = new Set();
         let favorites = new Set();
         let sortedFavorites = [];
+        let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
+        let searchQuery = localStorage.getItem('searchQuery') || '';
         let appPage = 1;
         let currentPage = 1;
         let maxPages = 0;
+        const moviesPerPage = 20;
+        let isLoading = false;
         const movieList = document.getElementById('movieList');
         const errorBox = document.getElementById('errorBox');
 
         const btn6m = document.getElementById('btn6m');
         const btnAll = document.getElementById('btnAll');
+
+        const genres = [
+            {id: 28, name: 'Action'},
+            {id: 12, name: 'Adventure'},
+            {id: 16, name: 'Animation'},
+            {id: 35, name: 'Comedy'},
+            {id: 80, name: 'Crime'},
+            {id: 18, name: 'Drama'},
+            {id: 10751, name: 'Family'},
+            {id: 14, name: 'Fantasy'},
+            {id: 27, name: 'Horror'},
+            {id: 10749, name: 'Romance'},
+            {id: 878, name: 'Science Fiction'},
+            {id: 53, name: 'Thriller'}
+        ];
 
         function updateActiveButton() {
             btn6m.classList.toggle('activeBtn', dateRange === '6m');
@@ -157,43 +198,71 @@
             currentPage = 1;
             maxPages = 0;
             updateActiveButton();
+            document.getElementById('filtersModal').style.display = 'none';
+            movieList.innerHTML = '';
+            loadMovies();
+        }
+
+        function clearFilters() {
+            dateRange = '6m';
+            localStorage.setItem('selectedRange', '6m');
+            selectedGenres = [];
+            localStorage.setItem('selectedGenres', JSON.stringify([]));
+            searchQuery = '';
+            localStorage.setItem('searchQuery', '');
+            seen.clear();
+            appPage = 1;
+            currentPage = 1;
+            maxPages = 0;
+            updateActiveButton();
+            movieList.innerHTML = '';
             loadMovies();
         }
 
         function loadNext() {
             appPage++;
-            loadMovies();
+            loadMovies(true);
         }
 
-        async function loadMovies() {
+        async function loadMovies(append = false) {
+            if (isLoading) return;
+            isLoading = true;
             errorBox.style.display = 'none';
-            movieList.innerHTML = '<p>Loading...</p>';
-            const favStart = (appPage - 1) * 10;
-            let favMovies = sortedFavorites.slice(favStart, favStart + 10);
-            let numFav = favMovies.length;
-            let numNewNeeded = 10 - numFav;
+            if (!append) movieList.innerHTML = '<p>Loading...</p>';
+            let favMovies = [];
+            let numFav = 0;
+            if (!searchQuery) {
+                const favStart = (appPage - 1) * moviesPerPage;
+                favMovies = sortedFavorites.slice(favStart, favStart + moviesPerPage);
+                numFav = favMovies.length;
+            }
+            let numNewNeeded = moviesPerPage - numFav;
             let newMovies = [];
             if (numNewNeeded > 0) {
                 let gte = '';
-                if (dateRange === '6m') {
+                if (dateRange === '6m' && !searchQuery) {
                     const today = new Date();
                     const pastDate = new Date();
                     pastDate.setMonth(today.getMonth() - 6);
                     const formatDate = d => d.toISOString().slice(0, 10);
                     gte = `&primary_release_date.gte=${formatDate(pastDate)}&primary_release_date.lte=${formatDate(today)}`;
-                } else if (dateRange === 'all') {
-                    gte = '';
                 }
+                let genreParam = '';
+                if (selectedGenres.length > 0 && !searchQuery) genreParam = `&with_genres=${selectedGenres.join(',')}`;
                 let attempts = 0;
                 const maxAttempts = 50;
+                let baseUrl = searchQuery 
+                    ? `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(searchQuery)}&with_original_language=en&region=US`
+                    : `https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}${gte}${genreParam}&sort_by=popularity.desc&with_original_language=en&region=US`;
                 while (newMovies.length < numNewNeeded && attempts < maxAttempts && (maxPages === 0 || currentPage <= maxPages)) {
                     attempts++;
                     try {
-                        const response = await fetch(`https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}${gte}&sort_by=popularity.desc&page=${currentPage}&with_original_language=en&region=US`);
+                        const response = await fetch(`${baseUrl}&page=${currentPage}`);
                         const data = await response.json();
                         if (data.status_code) {
                             showError(`TMDB Error: ${data.status_message}`);
                             movieList.innerHTML = '';
+                            isLoading = false;
                             return;
                         }
                         if (data.total_pages > maxPages) maxPages = data.total_pages;
@@ -207,24 +276,28 @@
                     } catch (err) {
                         showError(`Network error: ${err.message}`);
                         movieList.innerHTML = '';
+                        isLoading = false;
                         return;
                     }
                 }
                 newMovies = newMovies.slice(0, numNewNeeded);
-                newMovies.sort((a, b) => {
-                    const aHasVote = a.vote_average > 0 ? 1 : 0;
-                    const bHasVote = b.vote_average > 0 ? 1 : 0;
-                    if (aHasVote !== bHasVote) return bHasVote - aHasVote;
-                    const aHasPoster = a.poster_path ? 1 : 0;
-                    const bHasPoster = b.poster_path ? 1 : 0;
-                    return bHasPoster - aHasPoster;
-                });
+                if (!searchQuery) {
+                    newMovies.sort((a, b) => {
+                        const aHasVote = a.vote_average > 0 ? 1 : 0;
+                        const bHasVote = b.vote_average > 0 ? 1 : 0;
+                        if (aHasVote !== bHasVote) return bHasVote - aHasVote;
+                        const aHasPoster = a.poster_path ? 1 : 0;
+                        const bHasPoster = b.poster_path ? 1 : 0;
+                        return bHasPoster - aHasPoster;
+                    });
+                }
             }
             const allMovies = [...favMovies, ...newMovies];
             allMovies.forEach(movie => seen.add(movie.id));
 
+            let html = '';
             if (allMovies.length > 0) {
-                let html = '<ul>';
+                html += '<ul>';
                 allMovies.forEach(movie => {
                     const posterUrl = movie.poster_path ? `https://image.tmdb.org/t/p/w154${movie.poster_path}` : '';
                     const isFavorite = favorites.has(movie.id);
@@ -248,53 +321,60 @@
                     `;
                 });
                 html += '</ul>';
-                movieList.innerHTML = html;
-
-                // Setup overview click to expand
-                const overviews = document.querySelectorAll('.overview');
-                overviews.forEach(ov => {
-                    ov.style.maxHeight = '154px';
-                    ov.style.overflow = 'hidden';
-                    const isOverflow = ov.scrollHeight > ov.clientHeight;
-                    let ellipsis = null;
-                    if (isOverflow) {
-                        ellipsis = document.createElement('span');
-                        ellipsis.textContent = '...';
-                        ellipsis.style.position = 'absolute';
-                        ellipsis.style.bottom = '0';
-                        ellipsis.style.right = '0';
-                        ellipsis.style.backgroundColor = '#121212';
-                        ellipsis.style.color = '#e0e0e0';
-                        ov.appendChild(ellipsis);
-                    }
-                    ov.addEventListener('click', () => {
-                        if (ov.style.maxHeight !== 'none') {
-                            ov.style.maxHeight = 'none';
-                            ov.style.overflow = 'visible';
-                            if (ellipsis) {
-                                ellipsis.remove();
-                                ellipsis = null;
-                            }
-                        } else {
-                            ov.style.maxHeight = '154px';
-                            ov.style.overflow = 'hidden';
-                            const nowOverflow = ov.scrollHeight > ov.clientHeight;
-                            if (nowOverflow && !ellipsis) {
-                                ellipsis = document.createElement('span');
-                                ellipsis.textContent = '...';
-                                ellipsis.style.position = 'absolute';
-                                ellipsis.style.bottom = '0';
-                                ellipsis.style.right = '0';
-                                ellipsis.style.backgroundColor = '#121212';
-                                ellipsis.style.color = '#e0e0e0';
-                                ov.appendChild(ellipsis);
-                            }
-                        }
-                    });
-                });
             } else {
-                movieList.innerHTML = '<p>No movies found for this range.</p>';
+                html = '<p>No movies found.</p>';
             }
+            if (append) {
+                movieList.innerHTML += html;
+            } else {
+                movieList.innerHTML = html;
+            }
+            setupOverviews();
+            isLoading = false;
+        }
+
+        function setupOverviews() {
+            const overviews = document.querySelectorAll('.overview');
+            overviews.forEach(ov => {
+                ov.style.maxHeight = '154px';
+                ov.style.overflow = 'hidden';
+                const isOverflow = ov.scrollHeight > ov.clientHeight;
+                let ellipsis = null;
+                if (isOverflow) {
+                    ellipsis = document.createElement('span');
+                    ellipsis.textContent = '...';
+                    ellipsis.style.position = 'absolute';
+                    ellipsis.style.bottom = '0';
+                    ellipsis.style.right = '0';
+                    ellipsis.style.backgroundColor = '#121212';
+                    ellipsis.style.color = '#e0e0e0';
+                    ov.appendChild(ellipsis);
+                }
+                ov.addEventListener('click', () => {
+                    if (ov.style.maxHeight !== 'none') {
+                        ov.style.maxHeight = 'none';
+                        ov.style.overflow = 'visible';
+                        if (ellipsis) {
+                            ellipsis.remove();
+                            ellipsis = null;
+                        }
+                    } else {
+                        ov.style.maxHeight = '154px';
+                        ov.style.overflow = 'hidden';
+                        const nowOverflow = ov.scrollHeight > ov.clientHeight;
+                        if (nowOverflow && !ellipsis) {
+                            ellipsis = document.createElement('span');
+                            ellipsis.textContent = '...';
+                            ellipsis.style.position = 'absolute';
+                            ellipsis.style.bottom = '0';
+                            ellipsis.style.right = '0';
+                            ellipsis.style.backgroundColor = '#121212';
+                            ellipsis.style.color = '#e0e0e0';
+                            ov.appendChild(ellipsis);
+                        }
+                    }
+                });
+            });
         }
 
         (async () => {
@@ -302,7 +382,65 @@
             loadFavorites();
             await updateSortedFavorites();
             updateActiveButton();
+
+            // Setup filters modal
+            const filtersBtn = document.getElementById('filtersBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const filtersModal = document.getElementById('filtersModal');
+            const closeBtn = document.getElementsByClassName('close')[0];
+            const genresContainer = document.getElementById('genresContainer');
+            const searchInput = document.getElementById('searchInput');
+            const applyFilters = document.getElementById('applyFilters');
+
+            filtersBtn.onclick = () => {
+                filtersModal.style.display = 'block';
+                searchInput.value = searchQuery;
+            };
+
+            clearBtn.onclick = clearFilters;
+
+            closeBtn.onclick = () => { filtersModal.style.display = 'none'; };
+
+            window.onclick = (event) => {
+                if (event.target == filtersModal) filtersModal.style.display = 'none';
+            };
+
+            genres.forEach(genre => {
+                const label = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = genre.id;
+                checkbox.checked = selectedGenres.includes(genre.id);
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(genre.name));
+                genresContainer.appendChild(label);
+            });
+
+            applyFilters.onclick = () => {
+                selectedGenres = [];
+                genresContainer.querySelectorAll('input:checked').forEach(cb => {
+                    selectedGenres.push(parseInt(cb.value));
+                });
+                localStorage.setItem('selectedGenres', JSON.stringify(selectedGenres));
+                searchQuery = searchInput.value.trim();
+                localStorage.setItem('searchQuery', searchQuery);
+                filtersModal.style.display = 'none';
+                seen.clear();
+                appPage = 1;
+                currentPage = 1;
+                maxPages = 0;
+                movieList.innerHTML = '';
+                loadMovies();
+            };
+
             await loadMovies();
+
+            // Infinite scroll
+            window.addEventListener('scroll', () => {
+                if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500 && !isLoading) {
+                    loadNext();
+                }
+            });
         })();
     </script>
 </body>
