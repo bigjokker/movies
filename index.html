@@ -45,6 +45,7 @@
         let favorites = new Set();
         let sortedFavorites = [];
         let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
+        let selectedMoods = JSON.parse(localStorage.getItem('selectedMoods')) || [];
         let searchQuery = localStorage.getItem('searchQuery') || '';
         let appPage = 1;
         let currentPage = 1;
@@ -147,6 +148,8 @@
             localStorage.setItem('selectedRange', '6m');
             selectedGenres = [];
             localStorage.setItem('selectedGenres', JSON.stringify([]));
+            selectedMoods = [];
+            localStorage.setItem('selectedMoods', JSON.stringify([]));
             searchQuery = '';
             localStorage.setItem('searchQuery', '');
             seen.clear();
@@ -187,11 +190,13 @@
                 }
                 let genreParam = '';
                 if (selectedGenres.length > 0 && !searchQuery) genreParam = `&with_genres=${selectedGenres.join(',')}`;
+                let moodParam = '';
+                if (selectedMoods.length > 0 && !searchQuery) moodParam = `&with_keywords=${selectedMoods.join(',')}`;
                 let attempts = 0;
                 const maxAttempts = 50;
                 let baseUrl = searchQuery 
                     ? `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(searchQuery)}&with_original_language=en&region=US`
-                    : `https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}${gte}${genreParam}&sort_by=popularity.desc&with_original_language=en&region=US`;
+                    : `https://api.themoviedb.org/3/discover/movie?api_key=${apiKey}${gte}${genreParam}${moodParam}&sort_by=popularity.desc&with_original_language=en&region=US`;
                 while (newMovies.length < numNewNeeded && attempts < maxAttempts && (maxPages === 0 || currentPage <= maxPages)) {
                     attempts++;
                     try {
