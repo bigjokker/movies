@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Recent Movies by Popularity</title>
+    <title>Movies</title>
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=1">
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #121212; color: #e0e0e0; }
@@ -23,45 +23,19 @@
         button:hover { background-color: #444; }
         #errorBox { background: #300; color: #f88; padding: 10px; margin-bottom: 10px; border: 1px solid #600; display: none; }
         #header { display: flex; justify-content: space-between; align-items: center; }
-        #rangeButtons { display: flex; gap: 5px; }
-        .activeBtn { background-color: #555; border-color: #888; font-weight: bold; }
-        .modal { display: none; position: fixed; z-index: 1; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
-        .modal-content { background-color: #333; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 80%; color: #e0e0e0; }
-        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
-        .close:hover { color: #fff; cursor: pointer; }
-        #genresContainer label { display: block; }
-        #applyFilters { margin-top: 10px; }
         #headerButtons { display: flex; gap: 5px; }
-        input { font-size: 16px; }
     </style>
 </head>
 <body>
     <div id="header">
         <h1>Movies by Popularity</h1>
         <div id="headerButtons">
-            <button id="filtersBtn">Filters</button>
+            <button onclick="location.href='filters.html'">Filters</button>
             <button id="clearBtn">Clear</button>
         </div>
     </div>
     <div id="errorBox"></div>
     <div id="movieList"><p>Loading...</p></div>
-
-    <div id="filtersModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Filters</h2>
-            <h3>Date Range</h3>
-            <div id="rangeButtons">
-                <button id="btn6m" onclick="changeRange('6m')">Last 6 Months</button>
-                <button id="btnAll" onclick="changeRange('all')">All Time</button>
-            </div>
-            <h3>Genres</h3>
-            <div id="genresContainer"></div>
-            <h3>Search</h3>
-            <input type="text" id="searchInput" placeholder="Search for a movie...">
-            <button id="applyFilters">Apply</button>
-        </div>
-    </div>
 
     <script>
         const apiKey = 'aaec347fa3992967d904943e3728bf79'; // <-- Your tested API key
@@ -79,29 +53,6 @@
         let isLoading = false;
         const movieList = document.getElementById('movieList');
         const errorBox = document.getElementById('errorBox');
-
-        const btn6m = document.getElementById('btn6m');
-        const btnAll = document.getElementById('btnAll');
-
-        const genres = [
-            {id: 28, name: 'Action'},
-            {id: 12, name: 'Adventure'},
-            {id: 16, name: 'Animation'},
-            {id: 35, name: 'Comedy'},
-            {id: 80, name: 'Crime'},
-            {id: 18, name: 'Drama'},
-            {id: 10751, name: 'Family'},
-            {id: 14, name: 'Fantasy'},
-            {id: 27, name: 'Horror'},
-            {id: 10749, name: 'Romance'},
-            {id: 878, name: 'Science Fiction'},
-            {id: 53, name: 'Thriller'}
-        ];
-
-        function updateActiveButton() {
-            btn6m.classList.toggle('activeBtn', dateRange === '6m');
-            btnAll.classList.toggle('activeBtn', dateRange === 'all');
-        }
 
         function showError(msg) {
             errorBox.textContent = msg;
@@ -191,19 +142,6 @@
             liElement.remove();
         }
 
-        function changeRange(range) {
-            dateRange = range;
-            localStorage.setItem('selectedRange', range); // save selection
-            seen.clear();
-            appPage = 1;
-            currentPage = 1;
-            maxPages = 0;
-            updateActiveButton();
-            document.getElementById('filtersModal').style.display = 'none';
-            movieList.innerHTML = '';
-            loadMovies();
-        }
-
         function clearFilters() {
             dateRange = '6m';
             localStorage.setItem('selectedRange', '6m');
@@ -215,7 +153,6 @@
             appPage = 1;
             currentPage = 1;
             maxPages = 0;
-            updateActiveButton();
             movieList.innerHTML = '';
             loadMovies();
         }
@@ -382,57 +319,8 @@
             loadExcluded();
             loadFavorites();
             await updateSortedFavorites();
-            updateActiveButton();
 
-            // Setup filters modal
-            const filtersBtn = document.getElementById('filtersBtn');
-            const clearBtn = document.getElementById('clearBtn');
-            const filtersModal = document.getElementById('filtersModal');
-            const closeBtn = document.getElementsByClassName('close')[0];
-            const genresContainer = document.getElementById('genresContainer');
-            const searchInput = document.getElementById('searchInput');
-            const applyFilters = document.getElementById('applyFilters');
-
-            filtersBtn.onclick = () => {
-                filtersModal.style.display = 'block';
-                searchInput.value = searchQuery;
-            };
-
-            clearBtn.onclick = clearFilters;
-
-            closeBtn.onclick = () => { filtersModal.style.display = 'none'; };
-
-            window.onclick = (event) => {
-                if (event.target == filtersModal) filtersModal.style.display = 'none';
-            };
-
-            genres.forEach(genre => {
-                const label = document.createElement('label');
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.value = genre.id;
-                checkbox.checked = selectedGenres.includes(genre.id);
-                label.appendChild(checkbox);
-                label.appendChild(document.createTextNode(genre.name));
-                genresContainer.appendChild(label);
-            });
-
-            applyFilters.onclick = () => {
-                selectedGenres = [];
-                genresContainer.querySelectorAll('input:checked').forEach(cb => {
-                    selectedGenres.push(parseInt(cb.value));
-                });
-                localStorage.setItem('selectedGenres', JSON.stringify(selectedGenres));
-                searchQuery = searchInput.value.trim();
-                localStorage.setItem('searchQuery', searchQuery);
-                filtersModal.style.display = 'none';
-                seen.clear();
-                appPage = 1;
-                currentPage = 1;
-                maxPages = 0;
-                movieList.innerHTML = '';
-                loadMovies();
-            };
+            document.getElementById('clearBtn').onclick = clearFilters;
 
             await loadMovies();
 
