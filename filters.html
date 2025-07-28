@@ -9,28 +9,23 @@
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #121212; color: #e0e0e0; }
         button { background-color: #333; color: #e0e0e0; border: 1px solid #444; padding: 5px 10px; cursor: pointer; margin-left: 5px; }
         button:hover { background-color: #444; }
-        #rangeButtons { display: flex; gap: 5px; }
         .activeBtn { background-color: #555; border-color: #888; font-weight: bold; }
         #genresContainer label, #moodsContainer label { display: block; }
         #applyFilters, #cancelFilters { margin-top: 10px; }
         input { font-size: 16px; }
+        #filtersContainer { display: flex; justify-content: space-between; }
+        #genresContainer, #moodsContainer { width: 48%; }
     </style>
 </head>
 <body>
-    <h2>Filters</h2>
-    <h3>Date Range</h3>
-    <div id="rangeButtons">
-        <button id="btn6m">Last 6 Months</button>
-        <button id="btnAll">All Time</button>
-    </div>
     <h3>Year Range</h3>
     <input type="number" id="minYear" placeholder="Min Year (e.g. 2000)" min="1900" max="2100">
     <input type="number" id="maxYear" placeholder="Max Year (e.g. 2025)" min="1900" max="2100">
-    <h3>Genres</h3>
-    <div id="genresContainer"></div>
-    <h3>Mood Tags</h3>
-    <div id="moodsContainer"></div>
-    <h3>Search</h3>
+    <div id="filtersContainer">
+        <div id="genresContainer"><h3>Genres</h3></div>
+        <div id="moodsContainer"><h3>Moods</h3></div>
+    </div>
+    <h3>Movie Search</h3>
     <input type="text" id="searchInput" placeholder="Search for a movie...">
     <h3>Actor Search</h3>
     <input type="text" id="actorInput" placeholder="Actor names, comma separated...">
@@ -38,16 +33,12 @@
     <button id="cancelFilters">Cancel</button>
 
     <script>
-        let dateRange = localStorage.getItem('selectedRange') || '6m';
         let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
         let selectedMoods = JSON.parse(localStorage.getItem('selectedMoods')) || [];
         let searchQuery = localStorage.getItem('searchQuery') || '';
         let actorQuery = localStorage.getItem('actorQuery') || '';
         let minYear = localStorage.getItem('minYear') || '';
         let maxYear = localStorage.getItem('maxYear') || '';
-
-        const btn6m = document.getElementById('btn6m');
-        const btnAll = document.getElementById('btnAll');
 
         const genres = [
             {id: 28, name: 'Action'},
@@ -73,21 +64,6 @@
             {id: 9713, name: 'Suspenseful'},
             {id: 17296, name: 'Whimsical'}
         ];
-
-        function updateActiveButton() {
-            btn6m.classList.toggle('activeBtn', dateRange === '6m');
-            btnAll.classList.toggle('activeBtn', dateRange === 'all');
-        }
-
-        btn6m.onclick = () => {
-            dateRange = '6m';
-            updateActiveButton();
-        };
-
-        btnAll.onclick = () => {
-            dateRange = 'all';
-            updateActiveButton();
-        };
 
         const genresContainer = document.getElementById('genresContainer');
         genres.forEach(genre => {
@@ -142,15 +118,12 @@
             localStorage.setItem('actorQuery', actorQuery);
             localStorage.setItem('minYear', minYearInput.value);
             localStorage.setItem('maxYear', maxYearInput.value);
-            localStorage.setItem('selectedRange', dateRange);
             location.href = 'index.html';
         };
 
         document.getElementById('cancelFilters').onclick = () => {
             location.href = 'index.html';
         };
-
-        updateActiveButton();
     </script>
 </body>
 </html>
