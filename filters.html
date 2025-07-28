@@ -23,12 +23,17 @@
         <button id="btn6m">Last 6 Months</button>
         <button id="btnAll">All Time</button>
     </div>
+    <h3>Year Range</h3>
+    <input type="number" id="minYear" placeholder="Min Year (e.g. 2000)" min="1900" max="2100">
+    <input type="number" id="maxYear" placeholder="Max Year (e.g. 2025)" min="1900" max="2100">
     <h3>Genres</h3>
     <div id="genresContainer"></div>
     <h3>Mood Tags</h3>
     <div id="moodsContainer"></div>
     <h3>Search</h3>
     <input type="text" id="searchInput" placeholder="Search for a movie...">
+    <h3>Actor Search</h3>
+    <input type="text" id="actorInput" placeholder="Actor names, comma separated...">
     <button id="applyFilters">Apply</button>
     <button id="cancelFilters">Cancel</button>
 
@@ -37,6 +42,9 @@
         let selectedGenres = JSON.parse(localStorage.getItem('selectedGenres')) || [];
         let selectedMoods = JSON.parse(localStorage.getItem('selectedMoods')) || [];
         let searchQuery = localStorage.getItem('searchQuery') || '';
+        let actorQuery = localStorage.getItem('actorQuery') || '';
+        let minYear = localStorage.getItem('minYear') || '';
+        let maxYear = localStorage.getItem('maxYear') || '';
 
         const btn6m = document.getElementById('btn6m');
         const btnAll = document.getElementById('btnAll');
@@ -108,6 +116,15 @@
         const searchInput = document.getElementById('searchInput');
         searchInput.value = searchQuery;
 
+        const actorInput = document.getElementById('actorInput');
+        actorInput.value = actorQuery;
+
+        const minYearInput = document.getElementById('minYear');
+        minYearInput.value = minYear;
+
+        const maxYearInput = document.getElementById('maxYear');
+        maxYearInput.value = maxYear;
+
         document.getElementById('applyFilters').onclick = () => {
             selectedGenres = [];
             genresContainer.querySelectorAll('input:checked').forEach(cb => {
@@ -121,6 +138,10 @@
             localStorage.setItem('selectedMoods', JSON.stringify(selectedMoods));
             searchQuery = searchInput.value.trim();
             localStorage.setItem('searchQuery', searchQuery);
+            actorQuery = actorInput.value.trim();
+            localStorage.setItem('actorQuery', actorQuery);
+            localStorage.setItem('minYear', minYearInput.value);
+            localStorage.setItem('maxYear', maxYearInput.value);
             localStorage.setItem('selectedRange', dateRange);
             location.href = 'index.html';
         };
