@@ -57,7 +57,6 @@
 
     <script>
         const apiKey = 'aaec347fa3992967d904943e3728bf79'; // <-- Your tested API key
-        let dateRange = localStorage.getItem('selectedRange') || '6m'; // load saved range or default
         let seen = new Set();
         let excluded = new Set();
         let favorites = new Set();
@@ -169,8 +168,6 @@
         }
 
         function clearFilters() {
-            dateRange = '6m';
-            localStorage.setItem('selectedRange', '6m');
             selectedGenres = [];
             localStorage.setItem('selectedGenres', JSON.stringify([]));
             selectedMoods = [];
@@ -215,14 +212,6 @@
                 let lteStr = '';
                 if (minYear) gteStr = `&primary_release_date.gte=${minYear}-01-01`;
                 if (maxYear) lteStr = `&primary_release_date.lte=${maxYear}-12-31`;
-                if (dateRange === '6m' && !minYear && !maxYear && !searchQuery) {
-                    const today = new Date();
-                    const pastDate = new Date();
-                    pastDate.setMonth(today.getMonth() - 6);
-                    const formatDate = d => d.toISOString().slice(0, 10);
-                    gteStr = `&primary_release_date.gte=${formatDate(pastDate)}`;
-                    lteStr = `&primary_release_date.lte=${formatDate(today)}`;
-                }
                 let dateFilter = gteStr + lteStr;
                 let genreParam = '';
                 if (selectedGenres.length > 0 && !searchQuery) genreParam = `&with_genres=${selectedGenres.join(',')}`;
